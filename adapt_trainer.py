@@ -1,6 +1,7 @@
 
 """
- Parts of this code are based on https://github.com/tim-learn/SHOT-plus
+ Parts of this code are based on https://github.com/tim-learn/SHOT-plus/code/uda/image_target.py
+ The license of the file is in: https://github.com/tim-learn/SHOT-plus/blob/master/LICENSE
 """
 
 import os
@@ -31,7 +32,7 @@ def op_copy(optimizer):
 
 ######################################
 # Trainer class
-class TrainerG():
+class Trainer():
 
     def __init__(self, network, netR, optimizer, settings):
 
@@ -67,7 +68,7 @@ class TrainerG():
                                                 num_workers=self.num_workers)
 
         self.set_mode_val()
-        self.val_over_val_set(saveToWandb=True)
+        self.validation(saveToWandb=True)
         self.log_errors()
         self.set_mode_train()
 
@@ -514,7 +515,7 @@ class TrainerG():
                         p.requires_grad = False
 
     ####################################################
-    def val_over_val_set(self, saveToWandb=False):
+    def validation(self, saveToWandb=False):
 
         with torch.no_grad():
             self.summary_dict = {}
@@ -536,7 +537,7 @@ class TrainerG():
             overall_acc = 0
             overall_acc_count = 0
 
-            for data in tqdm(self.val_loader, desc='val over val set'):
+            for data in tqdm(self.val_loader, desc='validation'):
                 idx += 1
                 x = data[0][:, :3, :, :].to(self.settings['device'])
                 labels_target = data[1].to(self.settings['device'])

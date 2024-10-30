@@ -1,6 +1,7 @@
 
 """
- Parts of this code are based on https://github.com/tim-learn/SHOT-plus
+ Parts of this code are based on https://github.com/tim-learn/SHOT-plus/code/uda/image_target.py
+ The license of the file is in: https://github.com/tim-learn/SHOT-plus/blob/master/LICENSE
 """
 
 import argparse
@@ -16,14 +17,12 @@ import torch.optim as optim
 
 import networks as nets
 import wandb
-from Trainer_adapt import TrainerG
+from adapt_trainer import Trainer
 from utils import str2bool
 
 warnings.simplefilter("ignore", UserWarning)
 username = os.environ.get("USERNAME")
 torch.hub.set_dir(f'/Vols/vol_design/tools/swat/users/{username}/torch_hub_cache')
-
-itt_delete = []
 
 
 def op_copy(optimizer):
@@ -62,8 +61,8 @@ def main():
 
     update_config_wandb(args, settings)
 
-    # ====== CALL TRAINING AND VALIDATION PROCESS ======
-    trainval(network, netR, optimizer, exp_name, settings)
+    # training process
+    train(network, netR, optimizer, exp_name, settings)
 
     wandb.finish()
 
@@ -454,35 +453,28 @@ def parse_arguments():
     return args
 
 
-def trainval(network, netR, optimizer, exp_name, settings):
-    global least_val_loss
-    global itt_delete
+def train(network, netR, optimizer, exp_name, settings):
 
     train_iter = 0
-    trainer_G = TrainerG(network, netR, optimizer, settings)
-    max_iter = trainer_G.max_iter
+    trainer = Trainer(network, netR, optimizer, settings)
+    max_iter = trainer.max_iter
     while True:
 
-        trainer_G.set_mode_train()
-        trainer_G.train()
+        trainer.set_mode_train()
+        trainer.train()
 
         wandb.run.summary['iter_num'] = train_iter
 
-        if train_iter % (trainer_G.interval_iter) == 0 or train_iter == max_iter:
+        if train_iter % (trainer.interval_iter) == 0 or train_iter == max_iter:
 
             print("\n----------- train_iter " + str(train_iter) + ' -----------\n')
             print('validating')
-            trainer_G.set_mode_val()
+            trainer.set_mode_val()
 
-            if (train_iter % (trainer_G.interval_iter) == 0 or train_iter == max_iter):
-                test(trainer_G, settings)
+            if (train_iter % (trainer.interval_iter) == 0 or train_iter == max_iter):
+                test(trainer, settings)
 
             if train_iter == max_iter:
-                ############################
-                # # print CM
-                ############################
-                # if settings['add_DCPL']:
-                #     print_conf_mat(trainer_G, settings)
 
                 dict_to_save = {component: network.components[component].cpu().state_dict() for component in
                                 network.components}
@@ -495,29 +487,28 @@ def trainval(network, netR, optimizer, exp_name, settings):
         train_iter += 1
 
 
-def test(trainer_G, settings):
+def test(trainer, settings):
 
     if settings['dataset_name'] == 'VisDA-C':
-        val_record, val_record_classes = trainer_G.val_over_val_set()
+        val_acc, val_acc_classes = trainer.validation()
     else:
-        val_record = trainer_G.val_over_val_set()
+        val_acc = trainer.validation()
 
-    val_acc = val_record
-    trainer_G.log_errors()
+    trainer.log_errors()
 
-    wandb.log({"val accuracy": val_acc}, step=int((trainer_G.current_iteration - 1) / trainer_G.interval_iter))
+    wandb.log({"val accuracy": val_acc}, step=int((trainer.current_iteration - 1) / trainer.interval_iter))
 
     if settings['dataset_name'] == 'VisDA-C':
         class_names = ['Plane', 'Bcycle', 'Bus', 'Car', 'Horse', 'Knife', 'Mcycl', 'Person', 'Plant',
                        'Sktbrd', 'Train', 'Truck']
         for i in range(0, len(class_names)):
             curr_str = "val acc - " + class_names[i]
-            wandb.run.summary[curr_str] = val_record_classes[i]
+            wandb.run.summary[curr_str] = val_acc_classes[i]
 
 
 #############################################
-def print_conf_mat(trainer_G, settings):
-    conf_mat = trainer_G.CM.detach().cpu().numpy() * 100
+def print_conf_mat(trainer, settings):
+    conf_mat = trainer.CM.detach().cpu().numpy() * 100
 
     print(conf_mat)
     plt.rcParams["figure.figsize"] = [15.0, 15.0]
@@ -526,8 +517,8 @@ def print_conf_mat(trainer_G, settings):
 
     font_size = 20
 
-    for i in range(trainer_G.num_C):
-        for j in range(trainer_G.num_C):
+    for i in range(trainer.num_C):
+        for j in range(trainer.num_C):
             c = int(conf_mat[0, j, i])
             if c < np.max(conf_mat[0, :, :]) / 2:
                 color = 'k'
@@ -558,12 +549,12 @@ def print_conf_mat(trainer_G, settings):
     cbar = fig.colorbar(cmap, ticks=c)
     cbar.ax.tick_params(labelsize=font_size)
 
-    name = "learned_conf_mat_" + str(trainer_G.current_iteration) + "_" + settings["exp_name"] + ".png"
+    name = "learned_conf_mat_" + str(trainer.current_iteration) + "_" + settings["exp_name"] + ".png"
     os.makedirs('./output/CM/', exist_ok=True)
     os.makedirs('./output/CM_NPY/', exist_ok=True)
     plt.savefig("./output/CM/" + name)
     plt.close()
-    conf_mat_filename = "learned_conf_mat_" + str(trainer_G.current_iteration) + "_" + settings["exp_name"] + ".npy"
+    conf_mat_filename = "learned_conf_mat_" + str(trainer.current_iteration) + "_" + settings["exp_name"] + ".npy"
 
     np.save("./output/CM_NPY/" + conf_mat_filename, conf_mat)
 
