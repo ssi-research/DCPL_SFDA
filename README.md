@@ -40,12 +40,9 @@ Source-free domain adaptation (SFDA) aims to adapt a source-trained model to an 
 #### Pretrained-source models
 It is recommended to use pre-trained source models for consistency. 
 
-All pre-trained source models can be downloaded from here:
-https://drive.google.com/drive/folders/1-VzIXdyBwjO7Y89c8_TXktIaId7YVEZU?usp=sharing
+Pre-trained source models can be downloaded from https://github.com/tim-learn/SHOT
 
-After downloading, unzip the file and place under `weights` folder, directly in the project's root.
-
-The `weights` folder should now contain 4 sub-folders, named `2019`,`2020`,`2021`,`DN`.
+After downloading, place the file under `weights` folder, directly in the project's root.
 
 
 #### Source model training
